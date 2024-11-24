@@ -7,6 +7,7 @@ import requests
 import json
 import time
 import sys
+import re
 from collections import OrderedDict
 import xml.etree.ElementTree as ET
 
@@ -44,9 +45,12 @@ def check(text):
     if len(text) > 500:
         return Checked(result=False)
 
+    passport_key = get_passport_key()
+
     payload = {
         'color_blindness': '0',
-        'q': text
+        'q': text,
+        'passportKey': passport_key,
     }
 
     headers = {
@@ -58,7 +62,8 @@ def check(text):
     r = _agent.get(base_url, params=payload, headers=headers)
     passed_time = time.time() - start_time
 
-    data = json.loads(r.text)
+    json_text = re.sub(r'^[^(]*\(|\);?$', '', r.text)
+    data = json.loads(json_text)
     html = data['message']['result']['html']
     result = {
         'result': True,
@@ -112,3 +117,15 @@ def check(text):
     result = Checked(**result)
 
     return result
+def get_passport_key():
+    url = "https://search.naver.com/search.naver?where=nexearch&sm=top_hty&fbm=0&ie=utf8&query=네이버+맞춤법+검사기"
+    res = requests.get(url)
+
+    html_text = res.text
+
+    match = re.search(r'passportKey=([^&"}]+)', html_text)
+    if match:
+        passport_key = match.group(1)
+        return passport_key
+    else:
+        return False
